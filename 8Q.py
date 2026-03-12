@@ -1,29 +1,65 @@
 import random
 import math
-import time
-from collections import deque
 import heapq
+import time
+import os
+from collections import deque
 
-N = 8
+N = 4
+nodos_explorados = 0
 
-def imprimir_tablero(tablero):
-    for i in range(N):
-        fila = ""
-        for j in range(N):
-            if tablero[j] == i:
-                fila += "Q "
+
+# -------- COLORES --------
+
+ROJO = "\033[91m"
+VERDE = "\033[92m"
+AMARILLO = "\033[93m"
+RESET = "\033[0m"
+
+
+# -------- LIMPIAR CONSOLA --------
+
+def limpiar():
+    os.system('cls' if os.name == 'nt' else 'clear')
+
+
+# -------- TABLERO --------
+
+def mostrar_tablero(tablero, explorando=None, aceptado=None):
+
+    limpiar()
+
+    for fila in range(N):
+
+        linea = ""
+
+        for col in range(N):
+
+            if col < len(tablero) and tablero[col] == fila:
+                linea += ROJO + "Q " + RESET
+
+            elif aceptado and aceptado == (fila, col):
+                linea += VERDE + "* " + RESET
+
+            elif explorando and explorando == (fila, col):
+                linea += AMARILLO + "* " + RESET
+
             else:
-                fila += ". "
-        print(fila)
-    print("\n")
+                linea += ". "
+
+        print(linea)
+
+    time.sleep(0.25)
+
+
+# -------- CONFLICTOS --------
 
 def conflictos(tablero):
 
     ataques = 0
-    n = len(tablero)
 
-    for i in range(n):
-        for j in range(i+1, n):
+    for i in range(len(tablero)):
+        for j in range(i + 1, len(tablero)):
 
             if tablero[i] == tablero[j]:
                 ataques += 1
@@ -35,275 +71,384 @@ def conflictos(tablero):
 
 
 def es_solucion(tablero):
-    return conflictos(tablero) == 0
-# ---------------- DFS ----------------
+    return len(tablero) == N and conflictos(tablero) == 0
+
+
+# -------- RESULTADO --------
+
+def verificar(tablero, tiempo):
+
+    limpiar()
+
+    if es_solucion(tablero):
+        print("Solución encontrada\n")
+    else:
+        print("Solución más cercana encontrada")
+        print("No se pudo encontrar solución correcta al 100%\n")
+
+    mostrar_tablero(tablero)
+
+    print("Conflictos:", conflictos(tablero))
+    print("Nodos explorados:", nodos_explorados)
+    print("Tiempo:", round(tiempo,4),"segundos")
+
+
+# -------- DFS --------
 
 def dfs():
-    stack = [([],0)]
+
+    global nodos_explorados
+
+    stack=[([],0)]
+    mejor=[]
 
     while stack:
-        estado, col = stack.pop()
 
-        if col == N:
-            imprimir_tablero(estado)
+        estado,col=stack.pop()
+
+        if len(estado)>len(mejor):
+            mejor=estado
+
+        if col==N:
             return estado
 
         for fila in range(N):
-            nuevo = estado + [fila]
-            if conflictos(nuevo) == 0:
-                print("Paso DFS")
-                imprimir_tablero(nuevo + [-1]*(N-len(nuevo)))
+
+            nodos_explorados+=1
+
+            mostrar_tablero(estado,(fila,col))
+
+            nuevo=estado+[fila]
+
+            if conflictos(nuevo)==0:
+
+                mostrar_tablero(nuevo,aceptado=(fila,col))
+
                 stack.append((nuevo,col+1))
 
+    return mejor
 
-# ---------------- BFS ----------------
+
+# -------- BFS --------
 
 def bfs():
-    cola = deque()
+
+    global nodos_explorados
+
+    cola=deque()
     cola.append(([],0))
+    mejor=[]
 
     while cola:
-        estado,col = cola.popleft()
 
-        if col == N:
-            imprimir_tablero(estado)
+        estado,col=cola.popleft()
+
+        if len(estado)>len(mejor):
+            mejor=estado
+
+        if col==N:
             return estado
 
         for fila in range(N):
-            nuevo = estado + [fila]
 
-            if conflictos(nuevo) == 0:
-                print("Paso BFS")
-                imprimir_tablero(nuevo + [-1]*(N-len(nuevo)))
+            nodos_explorados+=1
+
+            mostrar_tablero(estado,(fila,col))
+
+            nuevo=estado+[fila]
+
+            if conflictos(nuevo)==0:
+
+                mostrar_tablero(nuevo,aceptado=(fila,col))
+
                 cola.append((nuevo,col+1))
 
+    return mejor
 
-# ---------------- LDFS / ILDFS ----------------
 
-def dfs_limit(estado, col, limite):
+# -------- LDFS --------
 
-    if col > limite:
+def dfs_limit(estado,col,limite,mejor):
+
+    global nodos_explorados
+
+    if col>limite:
         return None
 
-    if col == N:
-        imprimir_tablero(estado)
+    if len(estado)>len(mejor[0]):
+        mejor[0]=estado
+
+    if col==N:
         return estado
 
     for fila in range(N):
 
-        nuevo = estado + [fila]
+        nodos_explorados+=1
 
-        if conflictos(nuevo) == 0:
+        mostrar_tablero(estado,(fila,col))
 
-            print("Paso LDFS")
-            imprimir_tablero(nuevo + [-1]*(N-len(nuevo)))
+        nuevo=estado+[fila]
 
-            resultado = dfs_limit(nuevo, col+1, limite)
+        if conflictos(nuevo)==0:
+
+            resultado=dfs_limit(nuevo,col+1,limite,mejor)
 
             if resultado:
                 return resultado
 
     return None
 
+
 def ildfs():
-    for limite in range(1, N+1):
-        resultado = dfs_limit([],0,limite)
+
+    mejor=[[]]
+
+    for limite in range(1,N+1):
+
+        resultado=dfs_limit([],0,limite,mejor)
+
         if resultado:
             return resultado
 
-# ---------------- Greedy ----------------
+    return mejor[0]
+
+
+# -------- GREEDY --------
 
 def greedy():
 
-    tablero = [random.randint(0, N-1) for _ in range(N)]
+    global nodos_explorados
 
-    while True:
+    tablero=[random.randint(0,N-1) for _ in range(N)]
+    mejor=tablero
 
-        print("Estado actual:")
-        imprimir_tablero(tablero)
+    for _ in range(200):
 
-        conf_actual = conflictos(tablero)
+        mostrar_tablero(tablero)
 
-        if conf_actual == 0:
-            print("Solución encontrada")
+        if conflictos(tablero)==0:
             return tablero
 
-        mejor_tablero = tablero
-        mejor_conf = conf_actual
+        mejor_tablero=tablero
+        mejor_conf=conflictos(tablero)
 
         for col in range(N):
             for fila in range(N):
 
-                if fila != tablero[col]:
+                nodos_explorados+=1
 
-                    nuevo = tablero.copy()
-                    nuevo[col] = fila
+                mostrar_tablero(tablero,(fila,col))
 
-                    conf = conflictos(nuevo)
+                nuevo=tablero.copy()
+                nuevo[col]=fila
 
-                    if conf < mejor_conf:
-                        mejor_conf = conf
-                        mejor_tablero = nuevo
+                conf=conflictos(nuevo)
 
-        if mejor_tablero == tablero:
-            # mínimo local → reinicio aleatorio
-            tablero = [random.randint(0, N-1) for _ in range(N)]
-        else:
-            tablero = mejor_tablero
+                if conf<mejor_conf:
+                    mejor_conf=conf
+                    mejor_tablero=nuevo
 
-# ---------------- A* ----------------
+        tablero=mejor_tablero
+
+        if conflictos(tablero)<conflictos(mejor):
+            mejor=tablero
+
+    return mejor
+
+
+# -------- A* --------
 
 def astar():
 
-    cola = []
-    estado = []
+    global nodos_explorados
 
-    heapq.heappush(cola,(0,estado))
+    cola=[]
+    heapq.heappush(cola,(0,[]))
+    mejor=[]
 
     while cola:
 
-        _,estado = heapq.heappop(cola)
-        col = len(estado)
+        _,estado=heapq.heappop(cola)
+        col=len(estado)
 
-        if col == N:
-            imprimir_tablero(estado)
+        if len(estado)>len(mejor):
+            mejor=estado
+
+        if col==N:
             return estado
 
         for fila in range(N):
 
-            nuevo = estado + [fila]
+            nodos_explorados+=1
 
-            if conflictos(nuevo) == 0:
+            mostrar_tablero(estado,(fila,col))
 
-                g = len(nuevo)
-                h = conflictos(nuevo)
-                f = g + h
+            nuevo=estado+[fila]
 
-                print("Paso A*")
-                imprimir_tablero(nuevo + [-1]*(N-len(nuevo)))
+            if conflictos(nuevo)==0:
+
+                g=len(nuevo)
+                h=conflictos(nuevo)
+                f=g+h
+
+                mostrar_tablero(nuevo,aceptado=(fila,col))
 
                 heapq.heappush(cola,(f,nuevo))
 
+    return mejor
 
-# ---------------- Tabu Search ----------------
 
-def tabu_search(iteraciones=1000):
+# -------- TABU SEARCH --------
 
-    tablero = [random.randint(0,N-1) for _ in range(N)]
-    tabu = []
+def tabu_search(iteraciones=500):
+
+    global nodos_explorados
+
+    tablero=[random.randint(0,N-1) for _ in range(N)]
+    mejor=tablero
+    tabu=[]
 
     for _ in range(iteraciones):
 
-        imprimir_tablero(tablero)
+        mostrar_tablero(tablero)
 
         if es_solucion(tablero):
             return tablero
 
-        vecinos = []
+        vecinos=[]
 
         for col in range(N):
             for fila in range(N):
 
-                nuevo = tablero.copy()
-                nuevo[col] = fila
+                nodos_explorados+=1
 
-                if nuevo not in tabu:
-                    vecinos.append((conflictos(nuevo),nuevo))
+                mostrar_tablero(tablero,(fila,col))
+
+                if fila!=tablero[col]:
+
+                    nuevo=tablero.copy()
+                    nuevo[col]=fila
+
+                    if nuevo not in tabu:
+                        vecinos.append((conflictos(nuevo),nuevo))
 
         vecinos.sort()
 
-        mejor = vecinos[0][1]
+        mejor_vecino=vecinos[0][1]
+
+        if conflictos(mejor_vecino)<conflictos(mejor):
+            mejor=mejor_vecino
 
         tabu.append(tablero)
 
-        if len(tabu) > 50:
+        if len(tabu)>20:
             tabu.pop(0)
 
-        tablero = mejor
+        tablero=mejor_vecino
+
+    return mejor
 
 
-# ---------------- Simulated Annealing ----------------
+# -------- SIMULATED ANNEALING --------
 
 def simulated_annealing():
 
-    tablero = [random.randint(0,N-1) for _ in range(N)]
+    global nodos_explorados
 
-    T = 100
-    enfriamiento = 0.95
+    tablero=[random.randint(0,N-1) for _ in range(N)]
+    mejor=tablero
 
-    while T > 0.1:
+    T=50
+    enfriamiento=0.95
 
-        imprimir_tablero(tablero)
+    while T>0.1:
+
+        mostrar_tablero(tablero)
 
         if es_solucion(tablero):
-            print("Solución encontrada")
             return tablero
 
-        col = random.randint(0,N-1)
-        fila = random.randint(0,N-1)
+        col=random.randint(0,N-1)
+        fila=random.randint(0,N-1)
 
-        nuevo = tablero.copy()
-        nuevo[col] = fila
+        nodos_explorados+=1
 
-        delta = conflictos(nuevo) - conflictos(tablero)
+        mostrar_tablero(tablero,(fila,col))
 
-        if delta < 0 or random.random() < math.exp(-delta/T):
-            tablero = nuevo
+        nuevo=tablero.copy()
+        nuevo[col]=fila
 
-        T *= enfriamiento
+        delta=conflictos(nuevo)-conflictos(tablero)
 
-    # Verificación final
-    if es_solucion(tablero):
-        print("Solución encontrada")
-    else:
-        print("No encontró solución perfecta, conflictos:", conflictos(tablero))
+        if delta<0 or random.random()<math.exp(-delta/T):
+            tablero=nuevo
 
-    imprimir_tablero(tablero)
+        if conflictos(tablero)<conflictos(mejor):
+            mejor=tablero
 
-    return tablero
+        T*=enfriamiento
+
+    return mejor
 
 
-# ---------------- MENU ----------------
+# -------- EJECUTAR --------
+
+def ejecutar(algoritmo):
+
+    global nodos_explorados
+
+    nodos_explorados=0
+
+    inicio=time.time()
+
+    resultado=algoritmo()
+
+    fin=time.time()
+
+    verificar(resultado,fin-inicio)
+
+
+# -------- MENU --------
 
 def menu():
 
     while True:
 
-        print("\nPROBLEMA DE LAS N REINAS\n")
+        print("\nPROBLEMA DE LAS 4 REINAS\n")
 
-        print("1. BFS")
-        print("2. DFS")
-        print("3. LDFS / ILDFS")
-        print("4. Búsqueda Voraz")
-        print("5. A*")
-        print("6. Búsqueda Tabú")
-        print("7. Recocido Simulado")
-        print("8. Salir")
+        print("1 BFS")
+        print("2 DFS")
+        print("3 LDFS / IDDFS")
+        print("4 Voraz")
+        print("5 A*")
+        print("6 Tabu Search")
+        print("7 Recocido Simulado")
+        print("8 Salir")
 
-        op = input("Seleccione algoritmo: ")
+        op=input("Seleccione algoritmo: ")
 
-        if op == "1":
-            bfs()
+        if op=="1":
+            ejecutar(bfs)
 
-        elif op == "2":
-            dfs()
+        elif op=="2":
+            ejecutar(dfs)
 
-        elif op == "3":
-            ildfs()
+        elif op=="3":
+            ejecutar(ildfs)
 
-        elif op == "4":
-            greedy()
+        elif op=="4":
+            ejecutar(greedy)
 
-        elif op == "5":
-            astar()
+        elif op=="5":
+            ejecutar(astar)
 
-        elif op == "6":
-            tabu_search()
+        elif op=="6":
+            ejecutar(tabu_search)
 
-        elif op == "7":
-            simulated_annealing()
+        elif op=="7":
+            ejecutar(simulated_annealing)
 
-        elif op == "8":
+        elif op=="8":
             break
 
 
