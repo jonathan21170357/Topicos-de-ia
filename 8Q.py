@@ -5,7 +5,7 @@ import time
 import os
 from collections import deque
 
-N = 4
+N = 5
 nodos_explorados = 0
 
 

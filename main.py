@@ -393,7 +393,7 @@ def a_star(tablero, movimientos):
 # BUSQUEDA TABU
 # ==============================
 
-def busqueda_tabu(tablero, movimientos, tam_tabu=10):
+def busqueda_tabu(tablero, movimientos, tam_tabu=3):
 
     inicio = (0,0)
 
