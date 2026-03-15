@@ -5,12 +5,12 @@ import time
 import os
 from collections import deque
 
-N = 5
+N = 8
 nodos_explorados = 0
 
 
 # -------- COLORES --------
-
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               
 ROJO = "\033[91m"
 VERDE = "\033[92m"
 AMARILLO = "\033[93m"
@@ -49,7 +49,7 @@ def mostrar_tablero(tablero, explorando=None, aceptado=None):
 
         print(linea)
 
-    time.sleep(0.25)
+    time.sleep(0.01)
 
 
 # -------- CONFLICTOS --------
