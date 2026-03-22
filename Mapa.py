@@ -1,299 +1,276 @@
 import googlemaps
-import networkx as nx
-import random
-import math
-import folium
-import time
-import osmnx as ox
+import webbrowser
 from collections import deque
+import math
+from heapq import heappush, heappop
 
-API_KEY = "AIzaSyAUbNrDCnRiCqyIJ1lbe7l_8sryb2V3WUo" 
+API_KEY = "AIzaSyAUbNrDCnRiCqyIJ1lbe7l_8sryb2V3WUo"
 gmaps = googlemaps.Client(key=API_KEY)
 
 # -------------------------------
-# LOG (consola + archivo)
+# Distancia (heurística)
 # -------------------------------
-def escribir(log, texto):
-    print(texto)
-    log.write(texto + "\n")
+def distancia(a, b):
+    return math.sqrt((a['lat']-b['lat'])**2 + (a['lng']-b['lng'])**2)
 
 # -------------------------------
-# Geocodificar
+# Construir grafo
 # -------------------------------
-def obtener_coordenadas(lugar):
-    geo = gmaps.geocode(lugar)
-    lat = geo[0]['geometry']['location']['lat']
-    lng = geo[0]['geometry']['location']['lng']
-    return (lat, lng)
+def construir_grafo(steps):
+    G = {}
+    for i in range(len(steps)):
+        G.setdefault(i, [])
 
-# -------------------------------
-# Grafo de Calles Reales (OSMnx)
-# -------------------------------
-def crear_grafo_real(origen, destino):
-    print("Descargando mapa de calles reales... Esto puede tardar un momento dependiendo de la distancia.")
-    # Punto medio para descargar el mapa
-    clat = (origen[0] + destino[0]) / 2
-    clng = (origen[1] + destino[1]) / 2
-    
-    # Distancia aproximada en metros + un margen (buffer) de 2km
-    dist_grados = math.sqrt((origen[0]-destino[0])**2 + (origen[1]-destino[1])**2)
-    dist_metros = dist_grados * 111320 + 2000 
-    
-    # Descargar grafo de red de calles para conducir
-    G_osm = ox.graph_from_point((clat, clng), dist=dist_metros, network_type='drive')
-    
-    # Convertir a un grafo no dirigido simple para tus algoritmos
-    G = nx.Graph()
-    for n, data in G_osm.nodes(data=True):
-        G.add_node(n, y=data['y'], x=data['x'])
-        
-    for u, v, data in G_osm.edges(data=True):
-        # Tomamos la longitud de la calle como peso, normalizada a grados aprox.
-        peso = data.get('length', 10) / 111320 
-        G.add_edge(u, v, weight=peso)
-        
+        # conexión normal
+        if i+1 < len(steps):
+            G[i].append(i+1)
+
+        # 🔥 NUEVAS CONEXIONES (clave)
+        if i+2 < len(steps):
+            G[i].append(i+2)
+
+        if i+3 < len(steps):
+            G[i].append(i+3)
+
     return G
 
-def nodo_mas_cercano(G, lat, lng):
-    # Encuentra el nodo (intersección) más cercano a unas coordenadas dadas
-    mejor_nodo = None
-    min_dist = float('inf')
-    for n, data in G.nodes(data=True):
-        d = math.sqrt((data['y']-lat)**2 + (data['x']-lng)**2)
-        if d < min_dist:
-            min_dist = d
-            mejor_nodo = n
-    return mejor_nodo
+# -------------------------------
+# BFS
+# -------------------------------
+def bfs(G, inicio, fin, steps):
+    cola = deque([[inicio]])
+    visitados = set([inicio])
+    pasos = []
 
-# -------------------------------
-# Heurística Adaptada
-# -------------------------------
-def h(G, a, b):
-    # Ahora lee las coordenadas directamente de los atributos del nodo en el grafo real
-    lat1, lng1 = G.nodes[a]['y'], G.nodes[a]['x']
-    lat2, lng2 = G.nodes[b]['y'], G.nodes[b]['x']
-    return math.sqrt((lat1-lat2)**2 + (lng1-lng2)**2)
-
-# -------------------------------
-# ALGORITMOS (Adaptados para pasar G a la heurística)
-# -------------------------------
-def bfs(G, inicio, meta, log):
-    t=time.time()
-    visitados=[]
-    cola=deque([[inicio]])
-    paso=0
-    
     while cola:
-        paso+=1
-        camino=cola.popleft()
-        nodo=camino[-1]
-        
-        if nodo not in visitados:
-            visitados.append(nodo)
-            if nodo==meta:
-                escribir(log, f"🎯 Meta encontrada en paso {paso}")
-                return camino,visitados,time.time()-t
-            
-            for v in G.neighbors(nodo):
-                cola.append(camino+[v])
-    return None,visitados,time.time()-t
+        ruta = cola.popleft()
+        nodo = ruta[-1]
 
-def dfs(G,inicio,meta,log):
-    t=time.time()
-    visitados=[]
-    pila=[[inicio]]
-    paso=0
-    
+        pasos.append([steps[i]['start_location'] for i in ruta])
+
+        if nodo == fin:
+            ruta_coords = [steps[i]['start_location'] for i in ruta]
+            ruta_coords.append(steps[fin]['end_location'])
+            return ruta_coords, pasos
+
+        for vecino in G.get(nodo, []):
+            if vecino not in visitados:
+                visitados.add(vecino)
+                cola.append(ruta + [vecino])
+
+    return None, pasos
+
+# -------------------------------
+# DFS
+# -------------------------------
+def dfs(G, inicio, fin, steps):
+    pila = [[inicio]]
+    visitados = set([inicio])
+    pasos = []
+
     while pila:
-        paso+=1
-        camino=pila.pop()
-        nodo=camino[-1]
-        
-        if nodo not in visitados:
-            visitados.append(nodo)
-            if nodo==meta:
-                escribir(log, f"🎯 Meta encontrada en paso {paso}")
-                return camino,visitados,time.time()-t
-            
-            for v in G.neighbors(nodo):
-                pila.append(camino+[v])
-    return None,visitados,time.time()-t
+        ruta = pila.pop()
+        nodo = ruta[-1]
 
-def astar(G,inicio,meta,log):
-    t=time.time()
-    abiertos=[(inicio,[inicio],0)]
-    visitados=[]
-    paso=0
-    
-    while abiertos:
-        paso+=1
-        abiertos.sort(key=lambda x:x[2])
-        nodo,camino,costo=abiertos.pop(0)
-        
-        if nodo not in visitados:
-            visitados.append(nodo)
-            if nodo==meta:
-                escribir(log, f"🎯 Meta encontrada en paso {paso}")
-                return camino,visitados,time.time()-t
-            
-            for v in G.neighbors(nodo):
-                g = costo + G[nodo][v].get('weight', h(G, nodo, v))
-                f = g + h(G, v, meta)
-                abiertos.append((v, camino+[v], f))
-    
-    return None,visitados,time.time()-t
+        pasos.append([steps[i]['start_location'] for i in ruta])
+
+        if nodo == fin:
+            ruta_coords = [steps[i]['start_location'] for i in ruta]
+            ruta_coords.append(steps[fin]['end_location'])
+            return ruta_coords, pasos
+
+        for vecino in G.get(nodo, []):
+            if vecino not in visitados:
+                visitados.add(vecino)
+                pila.append(ruta + [vecino])
+
+    return None, pasos
 
 # -------------------------------
-# VORAZ (Greedy Best-First Search)
+# A* CORREGIDO
 # -------------------------------
-def voraz(G, inicio, meta, log):
-    t = time.time()
-    # La lista 'abiertos' guarda tuplas: (nodo, camino_recorrido, distancia_estimada_a_meta)
-    abiertos = [(inicio, [inicio], h(G, inicio, meta))]
-    visitados = []
-    paso = 0
-    
-    while abiertos:
-        paso += 1
-        
-        # Ordenamos la lista basándonos SOLO en la heurística h (el índice 2 de la tupla)
-        # Esto es lo que lo hace "Voraz": siempre elige lo que parece más cerca de la meta.
-        abiertos.sort(key=lambda x: x[2])
-        
-        # Extraemos el nodo que parece más prometedor
-        nodo, camino, heuristica = abiertos.pop(0)
-        
-        if nodo not in visitados:
-            visitados.append(nodo)
-            
-            # Si llegamos a la meta, terminamos
-            if nodo == meta:
-                escribir(log, f"🎯 Meta encontrada por Voraz en paso {paso}")
-                return camino, visitados, time.time() - t
-            
-            # Si no es la meta, exploramos sus vecinos
-            for v in G.neighbors(nodo):
-                if v not in visitados:
-                    # Calculamos qué tan lejos está el vecino de la meta
-                    distancia_a_meta = h(G, v, meta)
-                    abiertos.append((v, camino + [v], distancia_a_meta))
-    
-    # Si se agotan las opciones sin llegar a la meta
-    return None, visitados, time.time() - t
+def astar(G, inicio, fin, steps):
+    open_set = []
+    heappush(open_set, (0, inicio))
 
-# (Puedes re-implementar ILDFS, Tabú y Recocido aquí siguiendo el mismo patrón de cambiar h(a,b) por h(G,a,b))
+    came_from = {}
+    g_score = {inicio: 0}
+
+    pasos = []
+
+    while open_set:
+        _, actual = heappop(open_set)
+
+        # reconstruir ruta parcial
+        ruta_temp = []
+        n = actual
+        while n in came_from:
+            ruta_temp.append(n)
+            n = came_from[n]
+        ruta_temp.append(inicio)
+        ruta_temp.reverse()
+
+        pasos.append([steps[i]['start_location'] for i in ruta_temp])
+
+        if actual == fin:
+            ruta_final = ruta_temp
+            ruta_coords = [steps[i]['start_location'] for i in ruta_final]
+            ruta_coords.append(steps[fin]['end_location'])
+            return ruta_coords, pasos
+
+        for vecino in G.get(actual, []):
+            tentative_g = g_score[actual] + 1
+
+            if vecino not in g_score or tentative_g < g_score[vecino]:
+                came_from[vecino] = actual
+                g_score[vecino] = tentative_g
+
+                h = distancia(
+                    steps[vecino]['start_location'],
+                    steps[fin]['end_location']
+                )
+
+                f = tentative_g + h
+                heappush(open_set, (f, vecino))
+
+    return None, pasos
 
 # -------------------------------
-# COSTO
+# Generar mapa
 # -------------------------------
-def costo(G, camino):
-    if not camino: return 0
-    return sum(h(G, camino[i], camino[i+1]) for i in range(len(camino)-1))
+def generar_mapa(ruta, pasos, origen, destino, algoritmo):
+    if not ruta:
+        print("No se puede generar el mapa (ruta vacía)")
+        return
+
+    centro = ruta[0]
+
+    html = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Ruta</title>
+        <script src="https://maps.googleapis.com/maps/api/js?key={API_KEY}"></script>
+    </head>
+    <body>
+    <div id="map" style="height:100vh;"></div>
+
+    <script>
+    function initMap() {{
+        var map = new google.maps.Map(document.getElementById('map'), {{
+            zoom: 14,
+            center: {{lat: {centro['lat']}, lng: {centro['lng']}}}
+        }});
+
+        var pasos = [];
+    """
+
+    for ruta_parcial in pasos:
+        path = [f"{{lat:{p['lat']}, lng:{p['lng']}}}" for p in ruta_parcial]
+        html += f"pasos.push([{','.join(path)}]);\n"
+
+    html += """
+        var i = 0;
+
+        function dibujarPaso() {
+            if (i < pasos.length) {
+                new google.maps.Polyline({
+                    path: pasos[i],
+                    geodesic: true,
+                    strokeColor: "#AAAAAA",
+                    strokeOpacity: 0.5,
+                    strokeWeight: 2,
+                    map: map
+                });
+                i++;
+                setTimeout(dibujarPaso, 300);
+            } else {
+                new google.maps.Polyline({
+                    path: pasos[pasos.length - 1],
+                    geodesic: true,
+                    strokeColor: "#FF0000",
+                    strokeOpacity: 1.0,
+                    strokeWeight: 4,
+                    map: map
+                });
+            }
+        }
+
+        dibujarPaso();
+    }
+
+    window.onload = initMap;
+    </script>
+    </body>
+    </html>
+    """
+
+    with open("ruta.html", "w", encoding="utf-8") as f:
+        f.write(html)
+
+    webbrowser.open("ruta.html")
+    print("\n✅ Mapa generado correctamente")
+    print(f"Punto A: {origen}")
+    print(f"Punto B: {destino}")
+    print(f"Algoritmo utilizado: {algoritmo}")
 
 # -------------------------------
-# MAPA
+# MENÚ
 # -------------------------------
-# -------------------------------
-# MAPA (Restaurado a tu diseño original)
-# -------------------------------
-# -------------------------------
-# MAPA (Sin garabatos ni saltos)
-# -------------------------------
-def mapa(G, origen, destino, visitados, camino, color):
-    # Centramos el mapa en las coordenadas de origen
-    m = folium.Map(location=origen, zoom_start=14)
+def menu():
+    origen = input("Dirección origen: ")
+    destino = input("Dirección destino: ")
 
-    # 🔵 PROCESO (área explorada respetando las calles reales)
-    # Creamos un "subgrafo" que contiene solo los nodos que el algoritmo visitó.
-    # .edges() nos da exactamente las calles físicas que conectan esos nodos.
-    calles_exploradas = G.subgraph(visitados).edges()
-    
-    for u, v in calles_exploradas:
-        coord_u = (G.nodes[u]['y'], G.nodes[u]['x'])
-        coord_v = (G.nodes[v]['y'], G.nodes[v]['x'])
-        
-        folium.PolyLine(
-            [coord_u, coord_v],
-            color='lightblue',
-            weight=2,
-            opacity=0.6
-        ).add_to(m)
+    directions = gmaps.directions(origen, destino, mode="driving")
 
-    # 📍 Inicio
-    folium.Marker(
-        origen,
-        popup="Inicio",
-        icon=folium.Icon(color='green')
-    ).add_to(m)
+    if not directions:
+        print("No se pudo obtener la ruta")
+        return
 
-    # 📍 Meta
-    folium.Marker(
-        destino,
-        popup="Meta",
-        icon=folium.Icon(color='red')
-    ).add_to(m)
+    steps = directions[0]['legs'][0]['steps']
 
-    # 🟢 CAMINO FINAL (resaltado)
-    if camino:
-        coords_camino = [(G.nodes[n]['y'], G.nodes[n]['x']) for n in camino]
-        folium.PolyLine(
-            coords_camino,
-            color=color,
-            weight=6,
-            opacity=0.9
-        ).add_to(m)
+    if len(steps) == 0:
+        print("Ruta vacía")
+        return
 
-    # Guardamos el archivo HTML
-    m.save("mapa_final.html")
+    G = construir_grafo(steps)
+    inicio, fin = 0, len(steps) - 1
+
+    print("\nALGORITMOS DE BÚSQUEDA\n")
+    print("1 BFS")
+    print("2 DFS")
+    print("3 A*")
+
+    op = input("Selecciona algoritmo: ")
+
+    if op == "1":
+        ruta, pasos = bfs(G, inicio, fin, steps)
+    elif op == "2":
+        ruta, pasos = dfs(G, inicio, fin, steps)
+    elif op == "3":
+        ruta, pasos = astar(G, inicio, fin, steps)
+    else:
+        print("Opción inválida")
+        return
+
+    if ruta is None:
+        print("No se encontró ruta")
+    else:
+        print("Generando mapa...")
+        algoritmo_nombre = ""
+        if op == 1:
+            ruta, pasos = bfs(G, inicio, fin, steps)
+            algoritmo_nombre = "BFS"
+        elif op == 2:
+            ruta, pasos = dfs(G, inicio, fin, steps)
+            algoritmo_nombre = "DFS"
+        elif op == 3:
+            ruta, pasos = astar(G, inicio, fin, steps)
+            algoritmo_nombre = "A*"
+        generar_mapa(ruta, pasos, origen, destino, algoritmo_nombre)
+
 # -------------------------------
 # MAIN
 # -------------------------------
 if __name__ == "__main__":
-    log = open("proceso_busqueda.txt", "w", encoding="utf-8")
-
-    origen_txt=input("Origen (ej. 'Zocalo, CDMX'): ")
-    destino_txt=input("Destino (ej. 'Bellas Artes, CDMX'): ")
-
-    # Asegúrate de mantener búsquedas dentro de la misma ciudad para evitar tiempos de descarga excesivos
-    origen=obtener_coordenadas(origen_txt)
-    destino=obtener_coordenadas(destino_txt)
-
-    # 1. Crear el grafo basado en calles reales
-    G = crear_grafo_real(origen, destino)
-
-    # 2. Mapear origen y destino al nodo (intersección) más cercano en la vida real
-    nodo_inicio = nodo_mas_cercano(G, origen[0], origen[1])
-    nodo_meta = nodo_mas_cercano(G, destino[0], destino[1])
-
-    print("""
-    1 BFS
-    2 DFS
-    3 Voraz
-    4 A*
-    (He acortado la lista en el ejemplo, pero puedes añadir los demás)
-    """)
-
-    op=int(input("Selecciona: "))
-
-    algos=[bfs,dfs,voraz,astar]
-    nombres=["BFS","DFS","VORAZ","A*"]
-    colores={"BFS":"blue", "DFS":"purple", "VORAZ":"red", "A*":"green"}
-
-    print(f"Buscando ruta con {nombres[op-1]}...")
-    camino,visitados,tiempo=algos[op-1](G, nodo_inicio, nodo_meta, log)
-
-    # MÉTRICAS
-    escribir(log, "\n--- MÉTRICAS ---")
-    escribir(log, f"Algoritmo: {nombres[op-1]}")
-    escribir(log, f"Visitados: {len(visitados)}")
-    escribir(log, f"Longitud (nodos): {len(camino) if camino else 0}")
-    escribir(log, f"Costo: {costo(G, camino)}")
-    escribir(log, f"Tiempo: {tiempo:.4f} segundos")
-
-    # Mapeo usando las coordenadas originales pero la ruta sobre la red de calles
-    mapa(G, origen, destino, visitados, camino, colores.get(nombres[op-1], "black"))
-
-    log.close()
-
-    print("\n✅ mapa_final.html generado (Ahora usa calles reales)")
-    print("✅ proceso_busqueda.txt generado")
+    menu()

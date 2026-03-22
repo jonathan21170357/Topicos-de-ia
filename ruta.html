@@ -1,0 +1,61 @@
+
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Ruta</title>
+        <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAUbNrDCnRiCqyIJ1lbe7l_8sryb2V3WUo"></script>
+    </head>
+    <body>
+    <div id="map" style="height:100vh;"></div>
+
+    <script>
+    function initMap() {
+        var map = new google.maps.Map(document.getElementById('map'), {
+            zoom: 14,
+            center: {lat: 24.8086073, lng: -107.3935621}
+        });
+
+        var pasos = [];
+    pasos.push([{lat:24.8086073, lng:-107.3935621}]);
+pasos.push([{lat:24.8086073, lng:-107.3935621},{lat:24.8081176, lng:-107.3934693}]);
+pasos.push([{lat:24.8086073, lng:-107.3935621},{lat:24.813759, lng:-107.3911559}]);
+pasos.push([{lat:24.8086073, lng:-107.3935621},{lat:24.8087512, lng:-107.390505}]);
+pasos.push([{lat:24.8086073, lng:-107.3935621},{lat:24.813759, lng:-107.3911559},{lat:24.8151424, lng:-107.400766}]);
+pasos.push([{lat:24.8086073, lng:-107.3935621},{lat:24.813759, lng:-107.3911559},{lat:24.8157892, lng:-107.4000233}]);
+pasos.push([{lat:24.8086073, lng:-107.3935621},{lat:24.8081176, lng:-107.3934693},{lat:24.8145409, lng:-107.3912701}]);
+pasos.push([{lat:24.8086073, lng:-107.3935621},{lat:24.813759, lng:-107.3911559},{lat:24.8151424, lng:-107.400766},{lat:24.814376, lng:-107.3991439}]);
+
+        var i = 0;
+
+        function dibujarPaso() {
+            if (i < pasos.length) {
+                new google.maps.Polyline({
+                    path: pasos[i],
+                    geodesic: true,
+                    strokeColor: "#AAAAAA",
+                    strokeOpacity: 0.5,
+                    strokeWeight: 2,
+                    map: map
+                });
+                i++;
+                setTimeout(dibujarPaso, 300);
+            } else {
+                new google.maps.Polyline({
+                    path: pasos[pasos.length - 1],
+                    geodesic: true,
+                    strokeColor: "#FF0000",
+                    strokeOpacity: 1.0,
+                    strokeWeight: 4,
+                    map: map
+                });
+            }
+        }
+
+        dibujarPaso();
+    }
+
+    window.onload = initMap;
+    </script>
+    </body>
+    </html>
+    
