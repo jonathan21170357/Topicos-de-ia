@@ -1,0 +1,30 @@
+
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Ruta Real</title>
+        <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAUbNrDCnRiCqyIJ1lbe7l_8sryb2V3WUo"></script>
+    </head>
+    <body>
+    <div id="map" style="height:100vh;"></div>
+
+    <script>
+    function initMap() {
+        var map = new google.maps.Map(document.getElementById('map'), {
+            zoom: 15,
+            center: {lat: 24.80861, lng: -107.39356}
+        });
+
+        new google.maps.Polyline({
+            path: [{lat:24.80861, lng:-107.39356},{lat:24.80812, lng:-107.39347},{lat:24.80831, lng:-107.39243},{lat:24.80836, lng:-107.39222},{lat:24.80852, lng:-107.39159},{lat:24.80859, lng:-107.39125},{lat:24.80875, lng:-107.3905},{lat:24.80952, lng:-107.39068},{lat:24.81054, lng:-107.39093},{lat:24.81128, lng:-107.39112},{lat:24.81204, lng:-107.39113},{lat:24.81282, lng:-107.3911},{lat:24.81348, lng:-107.39112},{lat:24.81407, lng:-107.3912},{lat:24.81444, lng:-107.39159},{lat:24.8143, lng:-107.39236},{lat:24.81417, lng:-107.39303},{lat:24.81409, lng:-107.39376},{lat:24.81405, lng:-107.39426},{lat:24.81401, lng:-107.39501},{lat:24.81402, lng:-107.39555},{lat:24.81408, lng:-107.39623},{lat:24.81417, lng:-107.39687},{lat:24.81421, lng:-107.39705},{lat:24.81437, lng:-107.39768},{lat:24.8147, lng:-107.39839},{lat:24.81475, lng:-107.39848},{lat:24.81438, lng:-107.39914},{lat:24.81372, lng:-107.39903},{lat:24.81333, lng:-107.39969}],
+            strokeColor: "#FF0000",
+            strokeWeight: 4,
+            map: map
+        });
+    }
+
+    window.onload = initMap;
+    </script>
+    </body>
+    </html>
+    

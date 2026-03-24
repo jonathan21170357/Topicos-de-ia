@@ -5,47 +5,51 @@ import math
 from heapq import heappush, heappop
 import os
 import polyline
+import random
 
 API_KEY = "AIzaSyAUbNrDCnRiCqyIJ1lbe7l_8sryb2V3WUo"
 gmaps = googlemaps.Client(key=API_KEY)
 
 # -------------------------------
-# Distancia (heurística)
+# Distancia
 # -------------------------------
 def distancia(a, b):
     return math.sqrt((a['lat']-b['lat'])**2 + (a['lng']-b['lng'])**2)
 
 # -------------------------------
-# Construir grafo con bifurcaciones
+# Obtener nodos
 # -------------------------------
-def construir_grafo(steps):
+def obtener_nodos(steps):
+    nodos = []
+    for step in steps:
+        puntos = polyline.decode(step['polyline']['points'])
+        for lat, lng in puntos:
+            nodos.append({'lat': lat, 'lng': lng})
+    return nodos
+
+# -------------------------------
+# Grafo balanceado
+# -------------------------------
+def construir_grafo_real(nodos):
     G = {}
-    for i in range(len(steps)):
-        G.setdefault(i, [])
 
-        if i+1 < len(steps):
+    for i in range(len(nodos)):
+        G[i] = []
+
+    for i in range(len(nodos)):
+        if i+1 < len(nodos):
             G[i].append(i+1)
+            G[i+1].append(i)
 
-        if i+2 < len(steps):
+        if i+2 < len(nodos):
             G[i].append(i+2)
+            G[i+2].append(i)
 
-        if i+3 < len(steps):
+        if i+3 < len(nodos):
             G[i].append(i+3)
+            G[i+3].append(i)
 
     return G
-
-# -------------------------------
-# Convertir a ruta real (calles)
-# -------------------------------
-def obtener_ruta_real(steps, indices_ruta):
-    ruta_real = []
-
-    for i in indices_ruta:
-        puntos = polyline.decode(steps[i]['polyline']['points'])
-        for lat, lng in puntos:
-            ruta_real.append({'lat': lat, 'lng': lng})
-
-    return ruta_real
 
 # -------------------------------
 # BFS
@@ -53,23 +57,23 @@ def obtener_ruta_real(steps, indices_ruta):
 def bfs(G, inicio, fin):
     cola = deque([[inicio]])
     visitados = set([inicio])
-    pasos = []
 
     while cola:
         ruta = cola.popleft()
         nodo = ruta[-1]
 
-        pasos.append(ruta)
-
         if nodo == fin:
-            return ruta, pasos
+            return ruta
 
-        for vecino in G.get(nodo, []):
+        vecinos = list(G[nodo])
+        vecinos.reverse()
+
+        for vecino in vecinos:
             if vecino not in visitados:
                 visitados.add(vecino)
                 cola.append(ruta + [vecino])
 
-    return None, pasos
+    return None
 
 # -------------------------------
 # DFS
@@ -77,84 +81,85 @@ def bfs(G, inicio, fin):
 def dfs(G, inicio, fin):
     pila = [[inicio]]
     visitados = set([inicio])
-    pasos = []
 
     while pila:
         ruta = pila.pop()
         nodo = ruta[-1]
 
-        pasos.append(ruta)
-
         if nodo == fin:
-            return ruta, pasos
+            return ruta
 
-        for vecino in G.get(nodo, []):
+        vecinos = list(G[nodo])
+        random.shuffle(vecinos)
+
+        for vecino in vecinos:
             if vecino not in visitados:
                 visitados.add(vecino)
                 pila.append(ruta + [vecino])
 
-    return None, pasos
+    return None
 
 # -------------------------------
 # A*
 # -------------------------------
-def astar(G, inicio, fin, steps):
+def astar(G, inicio, fin, nodos):
     open_set = []
     heappush(open_set, (0, inicio))
 
     came_from = {}
     g_score = {inicio: 0}
-    pasos = []
 
     while open_set:
         _, actual = heappop(open_set)
 
-        # reconstruir ruta parcial
-        ruta_temp = []
-        n = actual
-        while n in came_from:
-            ruta_temp.append(n)
-            n = came_from[n]
-        ruta_temp.append(inicio)
-        ruta_temp.reverse()
-
-        pasos.append(ruta_temp)
-
         if actual == fin:
-            return ruta_temp, pasos
+            ruta = []
+            while actual in came_from:
+                ruta.append(actual)
+                actual = came_from[actual]
+            ruta.append(inicio)
+            return ruta[::-1]
 
-        for vecino in G.get(actual, []):
+        for vecino in G[actual]:
             tentative_g = g_score[actual] + 1
 
             if vecino not in g_score or tentative_g < g_score[vecino]:
                 came_from[vecino] = actual
                 g_score[vecino] = tentative_g
 
-                h = distancia(
-                    steps[vecino]['start_location'],
-                    steps[fin]['end_location']
-                )
-
+                h = distancia(nodos[vecino], nodos[fin])
                 f = tentative_g + h
+
                 heappush(open_set, (f, vecino))
 
-    return None, pasos
+    return None
+
+# -------------------------------
+# 🔥 Desplazar rutas para que no se encimen
+# -------------------------------
+def desplazar_ruta(ruta, nodos, offset):
+    nueva = []
+    for i in ruta:
+        nueva.append({
+            'lat': nodos[i]['lat'] + offset,
+            'lng': nodos[i]['lng'] + offset
+        })
+    return nueva
 
 # -------------------------------
 # Generar mapa
 # -------------------------------
-def generar_mapa(ruta_indices, pasos_indices, steps, origen, destino, algoritmo):
-    ruta_real = obtener_ruta_real(steps, ruta_indices)
+def generar_mapa(rutas, nodos, origen, destino):
+    colores = ["#0000FF", "#00AA00", "#FF0000"]
+    offsets = [0.00005, 0, -0.00005]  # 🔥 separación visual
 
-    pasos_reales = [obtener_ruta_real(steps, p) for p in pasos_indices]
-
-    centro = ruta_real[0]
+    centro = nodos[rutas[0][0]]
 
     html = f"""
     <!DOCTYPE html>
     <html>
     <head>
-        <title>Ruta</title>
+        <title>Comparación Algoritmos</title>
         <script src="https://maps.googleapis.com/maps/api/js?key={API_KEY}"></script>
     </head>
     <body>
@@ -163,64 +168,39 @@ def generar_mapa(ruta_indices, pasos_indices, steps, origen, destino, algoritmo)
     <script>
     function initMap() {{
         var map = new google.maps.Map(document.getElementById('map'), {{
-            zoom: 14,
+            zoom: 15,
             center: {{lat: {centro['lat']}, lng: {centro['lng']}}}
         }});
-
-        var pasos = [];
     """
 
-    # pasos exploración
-    for ruta_parcial in pasos_reales:
-        path = [f"{{lat:{p['lat']}, lng:{p['lng']}}}" for p in ruta_parcial]
-        html += f"pasos.push([{','.join(path)}]);\n"
+    for i, ruta in enumerate(rutas):
+        ruta_offset = desplazar_ruta(ruta, nodos, offsets[i])
+        path = [f"{{lat:{p['lat']}, lng:{p['lng']}}}" for p in ruta_offset]
+
+        html += f"""
+        new google.maps.Polyline({{
+            path: [{','.join(path)}],
+            strokeColor: "{colores[i]}",
+            strokeWeight: 5,
+            map: map
+        }});
+        """
 
     html += """
-        var i = 0;
-
-        function dibujarPaso() {
-            if (i < pasos.length) {
-                new google.maps.Polyline({
-                    path: pasos[i],
-                    strokeColor: "#AAAAAA",
-                    strokeOpacity: 0.5,
-                    strokeWeight: 2,
-                    map: map
-                });
-                i++;
-                setTimeout(dibujarPaso, 300);
-            } else {
-                new google.maps.Polyline({
-                    path: pasos[pasos.length - 1],
-                    strokeColor: "#FF0000",
-                    strokeOpacity: 1.0,
-                    strokeWeight: 4,
-                    map: map
-                });
-            }
-        }
-
-        dibujarPaso();
     }
-
     window.onload = initMap;
     </script>
     </body>
     </html>
     """
 
-    with open("ruta.html", "w", encoding="utf-8") as f:
+    with open("comparacion.html", "w", encoding="utf-8") as f:
         f.write(html)
 
-    webbrowser.open("file://" + os.path.abspath("ruta.html"))
+    webbrowser.open("file://" + os.path.abspath("comparacion.html"))
 
-    print("\n" + "="*40)
-    print("✅ MAPA GENERADO CORRECTAMENTE")
-    print("="*40)
-    print(f"Punto A: {origen}")
-    print(f"Punto B: {destino}")
-    print(f"Algoritmo utilizado: {algoritmo}")
-    print("="*40)
+    print("\n✅ Ahora se ven las 3 rutas correctamente")
+    print("🔵 BFS | 🟢 DFS | 🔴 A*")
 
 # -------------------------------
 # MAIN
@@ -231,45 +211,19 @@ def main():
 
     directions = gmaps.directions(origen, destino, mode="driving")
 
-    if not directions:
-        print("No se pudo obtener la ruta")
-        return
-
     steps = directions[0]['legs'][0]['steps']
 
-    G = construir_grafo(steps)
-    inicio, fin = 0, len(steps) - 1
+    nodos = obtener_nodos(steps)
+    G = construir_grafo_real(nodos)
 
-    print("\nALGORITMOS:")
-    print("1 BFS")
-    print("2 DFS")
-    print("3 A*")
+    inicio = 0
+    fin = len(nodos) - 1
 
-    try:
-        op = int(input("Selecciona algoritmo: ").strip())
-    except:
-        print("Opción inválida")
-        return
+    ruta_bfs = bfs(G, inicio, fin)
+    ruta_dfs = dfs(G, inicio, fin)
+    ruta_astar = astar(G, inicio, fin, nodos)
 
-    if op == 1:
-        ruta, pasos = bfs(G, inicio, fin)
-        algoritmo = "BFS"
-    elif op == 2:
-        ruta, pasos = dfs(G, inicio, fin)
-        algoritmo = "DFS"
-    elif op == 3:
-        ruta, pasos = astar(G, inicio, fin, steps)
-        algoritmo = "A*"
-    else:
-        print("Opción inválida")
-        return
+    generar_mapa([ruta_bfs, ruta_dfs, ruta_astar], nodos, origen, destino)
 
-    if ruta is None:
-        print("No se encontró ruta")
-    else:
-        print("Generando mapa...")
-        generar_mapa(ruta, pasos, steps, origen, destino, algoritmo)
-
-# -------------------------------
 if __name__ == "__main__":
     main()
