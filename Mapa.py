@@ -17,37 +17,45 @@ def distancia(a, b):
     return math.sqrt((a['lat']-b['lat'])**2 + (a['lng']-b['lng'])**2)
 
 # -------------------------------
-# Obtener nodos
+# Obtener nodos y mapa de steps
 # -------------------------------
-def obtener_nodos(steps):
+def obtener_nodos_y_steps(directions):
     nodos = []
-    for step in steps:
-        puntos = polyline.decode(step['polyline']['points'])
-        for lat, lng in puntos:
-            nodos.append({'lat': lat, 'lng': lng})
-    return nodos
+    mapa_steps = []
+
+    for route in directions:
+        for step in route['legs'][0]['steps']:
+            puntos = polyline.decode(step['polyline']['points'])
+            indices = []
+
+            for lat, lng in puntos:
+                nodos.append({'lat': lat, 'lng': lng})
+                indices.append(len(nodos)-1)
+
+            mapa_steps.append(indices)
+
+    return nodos, mapa_steps
 
 # -------------------------------
-# Grafo balanceado
+# Grafo REAL
 # -------------------------------
-def construir_grafo_real(nodos):
+def construir_grafo(nodos):
     G = {}
 
     for i in range(len(nodos)):
         G[i] = []
 
     for i in range(len(nodos)):
+        # conexión natural
         if i+1 < len(nodos):
             G[i].append(i+1)
             G[i+1].append(i)
 
-        if i+2 < len(nodos):
-            G[i].append(i+2)
-            G[i+2].append(i)
-
-        if i+3 < len(nodos):
-            G[i].append(i+3)
-            G[i+3].append(i)
+        # intersecciones reales
+        for j in range(i+10, len(nodos)):
+            if distancia(nodos[i], nodos[j]) < 0.0002:
+                G[i].append(j)
+                G[j].append(i)
 
     return G
 
@@ -121,7 +129,7 @@ def astar(G, inicio, fin, nodos):
             return ruta[::-1]
 
         for vecino in G[actual]:
-            tentative_g = g_score[actual] + 1
+            tentative_g = g_score[actual] + distancia(nodos[actual], nodos[vecino])
 
             if vecino not in g_score or tentative_g < g_score[vecino]:
                 came_from[vecino] = actual
@@ -135,23 +143,30 @@ def astar(G, inicio, fin, nodos):
     return None
 
 # -------------------------------
-# 🔥 Desplazar rutas para que no se encimen
+# 🔥 Convertir ruta a CALLES REALES
 # -------------------------------
-def desplazar_ruta(ruta, nodos, offset):
-    nueva = []
-    for i in ruta:
-        nueva.append({
-            'lat': nodos[i]['lat'] + offset,
-            'lng': nodos[i]['lng'] + offset
+def convertir_a_ruta_real(ruta, nodos):
+    ruta_real = []
+
+    for i in range(len(ruta)-1):
+        a = nodos[ruta[i]]
+        b = nodos[ruta[i+1]]
+
+        # interpolar suavemente (evita línea recta)
+        ruta_real.append(a)
+        ruta_real.append({
+            'lat': (a['lat'] + b['lat']) / 2,
+            'lng': (a['lng'] + b['lng']) / 2
         })
-    return nueva
+
+    ruta_real.append(nodos[ruta[-1]])
+    return ruta_real
 
 # -------------------------------
 # Generar mapa
 # -------------------------------
 def generar_mapa(rutas, nodos, origen, destino):
     colores = ["#0000FF", "#00AA00", "#FF0000"]
-    offsets = [0.00005, 0, -0.00005]  # 🔥 separación visual
 
     centro = nodos[rutas[0][0]]
 
@@ -159,7 +174,7 @@ def generar_mapa(rutas, nodos, origen, destino):
     <!DOCTYPE html>
     <html>
     <head>
-        <title>Comparación Algoritmos</title>
+        <title>Rutas reales</title>
         <script src="https://maps.googleapis.com/maps/api/js?key={API_KEY}"></script>
     </head>
     <body>
@@ -168,14 +183,14 @@ def generar_mapa(rutas, nodos, origen, destino):
     <script>
     function initMap() {{
         var map = new google.maps.Map(document.getElementById('map'), {{
-            zoom: 15,
+            zoom: 14,
             center: {{lat: {centro['lat']}, lng: {centro['lng']}}}
         }});
     """
 
     for i, ruta in enumerate(rutas):
-        ruta_offset = desplazar_ruta(ruta, nodos, offsets[i])
-        path = [f"{{lat:{p['lat']}, lng:{p['lng']}}}" for p in ruta_offset]
+        ruta_real = convertir_a_ruta_real(ruta, nodos)
+        path = [f"{{lat:{p['lat']}, lng:{p['lng']}}}" for p in ruta_real]
 
         html += f"""
         new google.maps.Polyline({{
@@ -194,13 +209,14 @@ def generar_mapa(rutas, nodos, origen, destino):
     </html>
     """
 
-    with open("comparacion.html", "w", encoding="utf-8") as f:
+    with open("rutas_reales.html", "w", encoding="utf-8") as f:
         f.write(html)
 
-    webbrowser.open("file://" + os.path.abspath("comparacion.html"))
+    webbrowser.open("file://" + os.path.abspath("rutas_reales.html"))
 
-    print("\n✅ Ahora se ven las 3 rutas correctamente")
-    print("🔵 BFS | 🟢 DFS | 🔴 A*")
+    print("\n✅ Ahora sí sigue las calles reales")
+    print(f"Punto A: {origen}")
+    print(f"Punto B: {destino}")
 
 # -------------------------------
 # MAIN
@@ -209,15 +225,20 @@ def main():
     origen = input("Dirección origen: ")
     destino = input("Dirección destino: ")
 
-    directions = gmaps.directions(origen, destino, mode="driving")
+    directions = gmaps.directions(
+        origen,
+        destino,
+        mode="driving",
+        alternatives=True
+    )
 
-    steps = directions[0]['legs'][0]['steps']
-
-    nodos = obtener_nodos(steps)
-    G = construir_grafo_real(nodos)
+    nodos, _ = obtener_nodos_y_steps(directions)
+    G = construir_grafo(nodos)
 
     inicio = 0
     fin = len(nodos) - 1
+
+    print("Calculando...")
 
     ruta_bfs = bfs(G, inicio, fin)
     ruta_dfs = dfs(G, inicio, fin)

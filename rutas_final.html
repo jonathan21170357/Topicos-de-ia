@@ -1,0 +1,44 @@
+
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Rutas Diferentes</title>
+        <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAUbNrDCnRiCqyIJ1lbe7l_8sryb2V3WUo"></script>
+    </head>
+    <body>
+    <div id="map" style="height:100vh;"></div>
+
+    <script>
+    function initMap() {
+        var map = new google.maps.Map(document.getElementById('map'), {
+            zoom: 14,
+            center: {lat: 24.80861, lng: -107.39356}
+        });
+    
+        new google.maps.Polyline({
+            path: [{lat:24.808660000000003, lng:-107.39350999999999},{lat:24.808660000000003, lng:-107.39350999999999},{lat:24.82589, lng:-107.42645},{lat:24.82589, lng:-107.42645}],
+            strokeColor: "#0000FF",
+            strokeWeight: 5,
+            map: map
+        });
+        
+        new google.maps.Polyline({
+            path: [{lat:24.80861, lng:-107.39356},{lat:24.80861, lng:-107.39356},{lat:24.82584, lng:-107.4265},{lat:24.82584, lng:-107.4265}],
+            strokeColor: "#00AA00",
+            strokeWeight: 5,
+            map: map
+        });
+        
+        new google.maps.Polyline({
+            path: [{lat:24.80856, lng:-107.39361},{lat:24.80856, lng:-107.39361},{lat:24.825789999999998, lng:-107.42655},{lat:24.825789999999998, lng:-107.42655}],
+            strokeColor: "#FF0000",
+            strokeWeight: 5,
+            map: map
+        });
+        
+    }
+    window.onload = initMap;
+    </script>
+    </body>
+    </html>
+    
