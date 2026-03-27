@@ -11,18 +11,16 @@ API_KEY = "AIzaSyAUbNrDCnRiCqyIJ1lbe7l_8sryb2V3WUo"
 gmaps = googlemaps.Client(key=API_KEY)
 
 # -------------------------------
-# Distancia
-# -------------------------------
 def distancia(a, b):
     return math.sqrt((a['lat']-b['lat'])**2 + (a['lng']-b['lng'])**2)
 
 # -------------------------------
-# Obtener nodos y conexiones reales
 # -------------------------------
 def obtener_nodos(directions):
     nodos = []
     conexiones = []
 
+    # Ahora iteramos sobre TODAS las rutas que devuelva Google Maps, no solo la [0]
     for route in directions:
         prev_index = None
 
@@ -39,56 +37,41 @@ def obtener_nodos(directions):
                 prev_index = idx
 
     return nodos, conexiones
-
-# -------------------------------
-# Construir grafo con intersecciones
 # -------------------------------
 def construir_grafo(nodos, conexiones):
-    G = {i: [] for i in range(len(nodos))}
+    G = {i: set() for i in range(len(nodos))} # Usamos set para no duplicar
 
-    # conexiones reales
     for a, b in conexiones:
-        G[a].append(b)
-        G[b].append(a)
+        G[a].add(b)
+        G[b].add(a)
 
-    # 🔥 intersecciones controladas
+    # Conexiones alternativas más amplias para crear verdaderas opciones de desvío
     for i in range(len(nodos)):
-        conexiones_agregadas = 0
-        for j in range(i+10, len(nodos)):
-            d = distancia(nodos[i], nodos[j])
+        for j in range(i+3, len(nodos)):
+            # Aumentamos la tolerancia para generar más "atajos" en el grafo
+            if distancia(nodos[i], nodos[j]) < 0.0002: 
+                G[i].add(j)
+                G[j].add(i)
 
-            if 0.00005 < d < 0.0003:
-                G[i].append(j)
-                G[j].append(i)
-
-                conexiones_agregadas += 1
-                if conexiones_agregadas >= 3:
-                    break
-
-    return G
+    # Devolvemos como listas para compatibilidad con random.choice
+    return {k: list(v) for k, v in G.items()}
 
 # -------------------------------
-# BFS (modificado)
+# BFS (camino base)
 # -------------------------------
-def bfs(G, inicio, fin):
+def bfs(G, inicio, fin, nodos):
     cola = deque([[inicio]])
     visitados = set([inicio])
-    LIMITE = 200
 
     while cola:
         ruta = cola.popleft()
         nodo = ruta[-1]
 
-        if nodo == fin:
+        # MODIFICADO: Llegamos si estamos geográficamente cerca del destino
+        if distancia(nodos[nodo], nodos[fin]) < 0.0005: 
             return ruta
 
-        if len(ruta) > LIMITE:
-            continue
-
-        vecinos = list(G[nodo])
-        random.shuffle(vecinos)
-
-        for vecino in vecinos:
+        for vecino in G[nodo]:
             if vecino not in visitados:
                 visitados.add(vecino)
                 cola.append(ruta + [vecino])
@@ -96,35 +79,36 @@ def bfs(G, inicio, fin):
     return None
 
 # -------------------------------
-# DFS
+# DFS (evita BFS flexiblemente)
 # -------------------------------
-def dfs(G, inicio, fin):
+def dfs(G, inicio, fin, nodos, evitar):
     pila = [[inicio]]
-    LIMITE = 200
+    visitados = set()
 
     while pila:
         ruta = pila.pop()
         nodo = ruta[-1]
 
-        if nodo == fin:
+        # MODIFICADO
+        if distancia(nodos[nodo], nodos[fin]) < 0.0005:
             return ruta
 
-        if len(ruta) > LIMITE:
-            continue
+        if nodo not in visitados:
+            visitados.add(nodo)
+            vecinos = list(G[nodo])
+            
+            vecinos.sort(key=lambda x: 1 if x in evitar else 0, reverse=True)
 
-        vecinos = list(G[nodo])
-        random.shuffle(vecinos)
-
-        for vecino in vecinos:
-            if vecino not in ruta:
-                pila.append(ruta + [vecino])
+            for vecino in vecinos:
+                if vecino not in visitados:
+                    pila.append(ruta + [vecino])
 
     return None
 
 # -------------------------------
-# A* (con penalización)
+# A* (penaliza fuertemente BFS)
 # -------------------------------
-def astar(G, inicio, fin, nodos):
+def astar(G, inicio, fin, nodos, evitar):
     open_set = []
     heappush(open_set, (0, inicio))
 
@@ -134,7 +118,8 @@ def astar(G, inicio, fin, nodos):
     while open_set:
         _, actual = heappop(open_set)
 
-        if actual == fin:
+        # MODIFICADO
+        if distancia(nodos[actual], nodos[fin]) < 0.0005:
             ruta = []
             while actual in came_from:
                 ruta.append(actual)
@@ -143,7 +128,8 @@ def astar(G, inicio, fin, nodos):
             return ruta[::-1]
 
         for vecino in G[actual]:
-            tentative_g = g_score[actual] + 1 + random.uniform(0.2, 0.8)
+            penal = 0.02 if vecino in evitar else 0
+            tentative_g = g_score[actual] + distancia(nodos[actual], nodos[vecino]) + penal
 
             if vecino not in g_score or tentative_g < g_score[vecino]:
                 came_from[vecino] = actual
@@ -157,11 +143,104 @@ def astar(G, inicio, fin, nodos):
     return None
 
 # -------------------------------
-# Generar mapa
+# Voraz
 # -------------------------------
-def generar_mapa(rutas, nodos, origen, destino):
-    colores = ["#0000FF", "#00AA00", "#FF0000"]
-    offsets = [0.00005, 0, -0.00005]
+def voraz(G, inicio, fin, nodos):
+    actual = inicio
+    ruta = [actual]
+    visitados = set([inicio])
+
+    while distancia(nodos[actual], nodos[fin]) >= 0.0005: 
+        vecinos = [v for v in G[actual] if v not in visitados]
+        
+        if not vecinos:
+            # ¡NUEVO! Si no hay salida, damos reversa en lugar de rendirnos
+            if len(ruta) > 1:
+                ruta.pop()
+                actual = ruta[-1]
+                continue
+            else:
+                return None 
+
+        siguiente = min(
+            vecinos,
+            key=lambda x: distancia(nodos[x], nodos[fin])
+        )
+
+        ruta.append(siguiente)
+        visitados.add(siguiente)
+        actual = siguiente
+
+    return ruta
+
+# -------------------------------
+# Tabú
+# -------------------------------
+def tabu(G, inicio, fin, nodos):
+    actual = inicio
+    ruta = [actual]
+    tabu_lista = set([inicio])
+
+    while distancia(nodos[actual], nodos[fin]) >= 0.0005:
+        vecinos = [v for v in G[actual] if v not in tabu_lista]
+
+        if not vecinos:
+            # ¡NUEVO! Si no hay salida, damos reversa
+            if len(ruta) > 1:
+                ruta.pop()
+                actual = ruta[-1]
+                continue
+            else:
+                return None
+
+        vecinos.sort(key=lambda x: distancia(nodos[x], nodos[fin]))
+        siguiente = random.choice(vecinos[:3]) if len(vecinos) >= 3 else vecinos[0]
+
+        ruta.append(siguiente)
+        tabu_lista.add(siguiente)
+        actual = siguiente
+
+    return ruta
+
+# -------------------------------
+# Recocido Simulado
+# -------------------------------
+def recocido(G, inicio, fin, nodos):
+    actual = inicio
+    ruta = [actual]
+    visitados = set([inicio])
+    T = 1.0
+
+    while distancia(nodos[actual], nodos[fin]) >= 0.0005:
+        vecinos = [v for v in G[actual] if v not in visitados]
+        
+        if not vecinos:
+            # ¡NUEVO! Si no hay salida, damos reversa
+            if len(ruta) > 1:
+                ruta.pop()
+                actual = ruta[-1]
+                continue
+            else:
+                return None
+
+        siguiente = random.choice(vecinos)
+        delta = distancia(nodos[siguiente], nodos[fin]) - distancia(nodos[actual], nodos[fin])
+
+        if delta < 0 or random.random() < math.exp(-delta / max(T, 0.001)):
+            actual = siguiente
+            ruta.append(actual)
+            visitados.add(actual)
+
+        T *= 0.95 
+
+    return ruta
+
+# -------------------------------
+# -------------------------------
+def generar_mapa(rutas, nodos):
+    colores = ["#0000FF", "#008000", "#FF0000", "#FFA500", "#800080", "#00FFFF"]
+    # Ampliamos los offsets para que las líneas se vean perfectamente en paralelo
+    offsets = [0.00015, 0.00010, 0, -0.00010, -0.00015, 0.00020]
 
     ruta_valida = next((r for r in rutas if r), None)
 
@@ -175,7 +254,6 @@ def generar_mapa(rutas, nodos, origen, destino):
     <!DOCTYPE html>
     <html>
     <head>
-        <title>Rutas</title>
         <script src="https://maps.googleapis.com/maps/api/js?key={API_KEY}"></script>
     </head>
     <body>
@@ -189,8 +267,11 @@ def generar_mapa(rutas, nodos, origen, destino):
         }});
     """
 
+    nombres = ["BFS", "DFS", "A*", "Voraz", "Tabú", "Recocido"]
+
     for i, ruta in enumerate(rutas):
         if not ruta:
+            print(f"⚠ El algoritmo {nombres[i]} no encontró un camino válido.")
             continue
 
         path = [
@@ -202,7 +283,8 @@ def generar_mapa(rutas, nodos, origen, destino):
         new google.maps.Polyline({{
             path: [{','.join(path)}],
             strokeColor: "{colores[i]}",
-            strokeWeight: 5,
+            strokeOpacity: 0.8,
+            strokeWeight: 4,
             map: map
         }});
         """
@@ -220,24 +302,28 @@ def generar_mapa(rutas, nodos, origen, destino):
 
     webbrowser.open("file://" + os.path.abspath("mapa_final.html"))
 
-    print("\n✅ MAPA GENERADO")
-    print(f"Punto A: {origen}")
-    print(f"Punto B: {destino}")
-    print("🔵 BFS | 🟢 DFS | 🔴 A*")
+    print("\n✅ MAPA GENERADO CORRECTAMENTE")
+    print("✔ Todos los algoritmos ejecutados\n")
+    
+    # --- NUEVO: Leyenda de colores en consola ---
+    print("--- LEYENDA DE COLORES ---")
+    print("🔵 Azul    -> BFS")
+    print("🟢 Verde   -> DFS")
+    print("🔴 Rojo    -> A*")
+    print("🟠 Naranja -> Voraz")
+    print("🟣 Morado  -> Tabú")
+    print("🩵 Cian    -> Recocido")
+    print("--------------------------")
 
 # -------------------------------
-# MAIN
+# -------------------------------
 # -------------------------------
 def main():
     origen = input("Origen: ")
     destino = input("Destino: ")
 
-    directions = gmaps.directions(
-        origen,
-        destino,
-        mode="driving",
-        alternatives=True
-    )
+    # Recuerda que aquí ya estamos pidiendo alternativas a Google Maps
+    directions = gmaps.directions(origen, destino, mode="driving", alternatives=True)
 
     nodos, conexiones = obtener_nodos(directions)
     G = construir_grafo(nodos, conexiones)
@@ -247,16 +333,26 @@ def main():
 
     print("Calculando...")
 
-    ruta_bfs = bfs(G, inicio, fin)
-    ruta_dfs = dfs(G, inicio, fin)
-    ruta_astar = astar(G, inicio, fin, nodos)
+    # AQUÍ ESTÁ LA CORRECCIÓN: Ya le pasamos 'nodos' al BFS
+    ruta_bfs = bfs(G, inicio, fin, nodos)
+    evitar = set(ruta_bfs) if ruta_bfs else set()
 
-    print("BFS:", "OK" if ruta_bfs else "No ruta")
-    print("DFS:", "OK" if ruta_dfs else "No ruta")
-    print("A* :", "OK" if ruta_astar else "No ruta")
+    # AQUÍ TAMBIÉN: Ya le pasamos 'nodos' al DFS
+    ruta_dfs = dfs(G, inicio, fin, nodos, evitar)
+    
+    ruta_astar = astar(G, inicio, fin, nodos, evitar)
+    ruta_voraz = voraz(G, inicio, fin, nodos)
+    ruta_tabu = tabu(G, inicio, fin, nodos)
+    ruta_recocido = recocido(G, inicio, fin, nodos)
 
-    generar_mapa([ruta_bfs, ruta_dfs, ruta_astar], nodos, origen, destino)
+    generar_mapa([
+        ruta_bfs,
+        ruta_dfs,
+        ruta_astar,
+        ruta_voraz,
+        ruta_tabu,
+        ruta_recocido
+    ], nodos)
 
-# -------------------------------
 if __name__ == "__main__":
     main()
