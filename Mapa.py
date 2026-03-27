@@ -19,7 +19,6 @@ def obtener_nodos(directions):
     nodos = []
     conexiones = []
 
-    # Iteracion de las rutas
     for route in directions:
         prev_index = None
 
@@ -64,7 +63,6 @@ def bfs(G, inicio, fin, nodos):
         ruta = cola.popleft()
         nodo = ruta[-1]
 
-
         if distancia(nodos[nodo], nodos[fin]) < 0.0005: 
             return ruta
 
@@ -98,6 +96,31 @@ def dfs(G, inicio, fin, nodos, evitar):
             for vecino in vecinos:
                 if vecino not in visitados:
                     pila.append(ruta + [vecino])
+
+    return None
+
+# -------------------------------
+# LDFS (Búsqueda en Profundidad Limitada)
+# -------------------------------
+def ldfs(G, inicio, fin, nodos, evitar, limite=2000):
+    pila = [([inicio], 0)]  
+    visitados_prof = {inicio: 0}
+
+    while pila:
+        ruta, prof = pila.pop()
+        nodo = ruta[-1]
+
+        if distancia(nodos[nodo], nodos[fin]) < 0.0005:
+            return ruta
+
+        if prof < limite:
+            vecinos = list(G[nodo])
+            vecinos.sort(key=lambda x: 1 if x in evitar else 0, reverse=True)
+
+            for vecino in vecinos:
+                if vecino not in visitados_prof or prof + 1 < visitados_prof[vecino]:
+                    visitados_prof[vecino] = prof + 1
+                    pila.append((ruta + [vecino], prof + 1))
 
     return None
 
@@ -231,9 +254,8 @@ def recocido(G, inicio, fin, nodos):
 # GENERAR MAPA
 # -------------------------------
 def generar_mapa(rutas, nodos):
-    colores = ["#0000FF", "#008000", "#FF0000", "#FFA500", "#800080", "#00FFFF"]
-
-    offsets = [0.00015, 0.00010, 0, -0.00010, -0.00015, 0.00020]
+    colores = ["#0000FF", "#008000", "#FF0000", "#FFA500", "#800080", "#00FFFF", "#FF1493"]
+    offsets = [0.00015, 0.00010, 0, -0.00010, -0.00015, 0.00020, -0.00020]
 
     ruta_valida = next((r for r in rutas if r), None)
 
@@ -260,7 +282,7 @@ def generar_mapa(rutas, nodos):
         }});
     """
 
-    nombres = ["BFS", "DFS", "A*", "Voraz", "Tabú", "Recocido"]
+    nombres = ["BFS", "DFS", "A*", "Voraz", "Tabú", "Recocido", "LDFS"]
 
     for i, ruta in enumerate(rutas):
         if not ruta:
@@ -305,6 +327,7 @@ def generar_mapa(rutas, nodos):
     print("🟠 Naranja -> Voraz")
     print("🟣 Morado  -> Tabú")
     print("🩵 Cian    -> Recocido")
+    print("💖 Rosa    -> LDFS")
     print("--------------------------")
 
 # -------------------------------
@@ -358,12 +381,12 @@ def main():
     origen = lugares[idx_origen]
     destino = lugares[idx_destino]
     
-    print(f"\n Calculando rutas desde '{origen}' hasta '{destino}'...")
+    print(f"\n🚗 Calculando rutas desde '{origen}' hasta '{destino}'...")
 
     directions = gmaps.directions(origen, destino, mode="driving", alternatives=True)
     
     if not directions:
-        print(" Google Maps no pudo encontrar una ruta entre estos puntos.")
+        print("❌ Google Maps no pudo encontrar una ruta entre estos puntos.")
         return
 
     nodos, conexiones = obtener_nodos(directions)
@@ -378,6 +401,7 @@ def main():
     evitar = set(ruta_bfs) if ruta_bfs else set()
 
     ruta_dfs = dfs(G, inicio, fin, nodos, evitar)
+    ruta_ldfs = ldfs(G, inicio, fin, nodos, evitar, limite=2000)
     
     ruta_astar = astar(G, inicio, fin, nodos, evitar)
     ruta_voraz = voraz(G, inicio, fin, nodos)
@@ -385,14 +409,15 @@ def main():
     ruta_recocido = recocido(G, inicio, fin, nodos)
     
     print("\n--- DISTANCIAS RECORRIDAS ---")
-    nombres = ["BFS (Azul)", "DFS (Verde)", "A* (Rojo)", "Voraz (Naranja)", "Tabú (Morado)", "Recocido (Cian)"]
+    nombres = ["BFS (Azul)", "DFS (Verde)", "A* (Rojo)", "Voraz (Naranja)", "Tabú (Morado)", "Recocido (Cian)", "LDFS (Rosa)"]
     rutas_calculadas = [
         ruta_bfs,
         ruta_dfs,
         ruta_astar,
         ruta_voraz,
         ruta_tabu,
-        ruta_recocido
+        ruta_recocido,
+        ruta_ldfs
     ]
 
     for nombre, ruta in zip(nombres, rutas_calculadas):
@@ -402,7 +427,7 @@ def main():
                 dist_total += distancia(nodos[ruta[i]], nodos[ruta[i+1]]) * 111.1
             print(f"{nombre}: {dist_total:.2f} km")
         else:
-            print(f"{nombre}: No encontró ruta")
+            print(f"{nombre}: ❌ No encontró ruta")
     print("-----------------------------\n")
 
     generar_mapa(rutas_calculadas, nodos)
