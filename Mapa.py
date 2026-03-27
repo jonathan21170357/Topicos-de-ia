@@ -39,25 +39,23 @@ def obtener_nodos(directions):
     return nodos, conexiones
 # -------------------------------
 def construir_grafo(nodos, conexiones):
-    G = {i: set() for i in range(len(nodos))} # Usamos set para no duplicar
+    G = {i: set() for i in range(len(nodos))}
 
     for a, b in conexiones:
         G[a].add(b)
         G[b].add(a)
 
-    # Conexiones alternativas más amplias para crear verdaderas opciones de desvío
+  
     for i in range(len(nodos)):
         for j in range(i+3, len(nodos)):
-            # Aumentamos la tolerancia para generar más "atajos" en el grafo
             if distancia(nodos[i], nodos[j]) < 0.0002: 
                 G[i].add(j)
                 G[j].add(i)
 
-    # Devolvemos como listas para compatibilidad con random.choice
     return {k: list(v) for k, v in G.items()}
 
 # -------------------------------
-# BFS (camino base)
+# BFS
 # -------------------------------
 def bfs(G, inicio, fin, nodos):
     cola = deque([[inicio]])
@@ -79,7 +77,7 @@ def bfs(G, inicio, fin, nodos):
     return None
 
 # -------------------------------
-# DFS (evita BFS flexiblemente)
+# DFS
 # -------------------------------
 def dfs(G, inicio, fin, nodos, evitar):
     pila = [[inicio]]
@@ -106,7 +104,7 @@ def dfs(G, inicio, fin, nodos, evitar):
     return None
 
 # -------------------------------
-# A* (penaliza fuertemente BFS)
+# A*
 # -------------------------------
 def astar(G, inicio, fin, nodos, evitar):
     open_set = []
@@ -154,7 +152,6 @@ def voraz(G, inicio, fin, nodos):
         vecinos = [v for v in G[actual] if v not in visitados]
         
         if not vecinos:
-            # ¡NUEVO! Si no hay salida, damos reversa en lugar de rendirnos
             if len(ruta) > 1:
                 ruta.pop()
                 actual = ruta[-1]
@@ -185,7 +182,6 @@ def tabu(G, inicio, fin, nodos):
         vecinos = [v for v in G[actual] if v not in tabu_lista]
 
         if not vecinos:
-            # ¡NUEVO! Si no hay salida, damos reversa
             if len(ruta) > 1:
                 ruta.pop()
                 actual = ruta[-1]
@@ -215,7 +211,6 @@ def recocido(G, inicio, fin, nodos):
         vecinos = [v for v in G[actual] if v not in visitados]
         
         if not vecinos:
-            # ¡NUEVO! Si no hay salida, damos reversa
             if len(ruta) > 1:
                 ruta.pop()
                 actual = ruta[-1]
@@ -239,7 +234,7 @@ def recocido(G, inicio, fin, nodos):
 # -------------------------------
 def generar_mapa(rutas, nodos):
     colores = ["#0000FF", "#008000", "#FF0000", "#FFA500", "#800080", "#00FFFF"]
-    # Ampliamos los offsets para que las líneas se vean perfectamente en paralelo
+
     offsets = [0.00015, 0.00010, 0, -0.00010, -0.00015, 0.00020]
 
     ruta_valida = next((r for r in rutas if r), None)
@@ -322,7 +317,7 @@ def main():
     origen = input("Origen: ")
     destino = input("Destino: ")
 
-    # Recuerda que aquí ya estamos pidiendo alternativas a Google Maps
+
     directions = gmaps.directions(origen, destino, mode="driving", alternatives=True)
 
     nodos, conexiones = obtener_nodos(directions)
@@ -333,11 +328,11 @@ def main():
 
     print("Calculando...")
 
-    # AQUÍ ESTÁ LA CORRECCIÓN: Ya le pasamos 'nodos' al BFS
+
     ruta_bfs = bfs(G, inicio, fin, nodos)
     evitar = set(ruta_bfs) if ruta_bfs else set()
 
-    # AQUÍ TAMBIÉN: Ya le pasamos 'nodos' al DFS
+
     ruta_dfs = dfs(G, inicio, fin, nodos, evitar)
     
     ruta_astar = astar(G, inicio, fin, nodos, evitar)
