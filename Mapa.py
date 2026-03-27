@@ -15,7 +15,6 @@ def distancia(a, b):
     return math.sqrt((a['lat']-b['lat'])**2 + (a['lng']-b['lng'])**2)
 
 # -------------------------------
-# -------------------------------
 def obtener_nodos(directions):
     nodos = []
     conexiones = []
@@ -37,6 +36,7 @@ def obtener_nodos(directions):
                 prev_index = idx
 
     return nodos, conexiones
+
 # -------------------------------
 def construir_grafo(nodos, conexiones):
     G = {i: set() for i in range(len(nodos))}
@@ -45,7 +45,6 @@ def construir_grafo(nodos, conexiones):
         G[a].add(b)
         G[b].add(a)
 
-  
     for i in range(len(nodos)):
         for j in range(i+3, len(nodos)):
             if distancia(nodos[i], nodos[j]) < 0.0002: 
@@ -65,7 +64,7 @@ def bfs(G, inicio, fin, nodos):
         ruta = cola.popleft()
         nodo = ruta[-1]
 
-        # MODIFICADO: Llegamos si estamos geográficamente cerca del destino
+        # Llegamos si estamos geográficamente cerca del destino
         if distancia(nodos[nodo], nodos[fin]) < 0.0005: 
             return ruta
 
@@ -87,7 +86,6 @@ def dfs(G, inicio, fin, nodos, evitar):
         ruta = pila.pop()
         nodo = ruta[-1]
 
-        # MODIFICADO
         if distancia(nodos[nodo], nodos[fin]) < 0.0005:
             return ruta
 
@@ -116,7 +114,6 @@ def astar(G, inicio, fin, nodos, evitar):
     while open_set:
         _, actual = heappop(open_set)
 
-        # MODIFICADO
         if distancia(nodos[actual], nodos[fin]) < 0.0005:
             ruta = []
             while actual in came_from:
@@ -231,6 +228,7 @@ def recocido(G, inicio, fin, nodos):
     return ruta
 
 # -------------------------------
+# GENERAR MAPA
 # -------------------------------
 def generar_mapa(rutas, nodos):
     colores = ["#0000FF", "#008000", "#FF0000", "#FFA500", "#800080", "#00FFFF"]
@@ -300,7 +298,6 @@ def generar_mapa(rutas, nodos):
     print("\n✅ MAPA GENERADO CORRECTAMENTE")
     print("✔ Todos los algoritmos ejecutados\n")
     
-    # --- NUEVO: Leyenda de colores en consola ---
     print("--- LEYENDA DE COLORES ---")
     print("🔵 Azul    -> BFS")
     print("🟢 Verde   -> DFS")
@@ -311,14 +308,63 @@ def generar_mapa(rutas, nodos):
     print("--------------------------")
 
 # -------------------------------
+# FUNCIONES DE MENÚ
 # -------------------------------
+def mostrar_menu():
+    lugares = [
+        "Parque las Riberas, Culiacán",
+        "Catedral de Culiacán",
+        "Plaza Sendero Culiacán",
+        "Aeropuerto Internacional de Culiacán",
+        "Instituto Tecnológico de Culiacán",
+        "Ciudad Universitaria UAS, Culiacán",
+        "Jardín Botánico Culiacán",
+        "Templo de La Lomita, Culiacán"
+    ]
+    
+    print("\n📍 --- LUGARES EN CULIACÁN --- 📍")
+    for i, lugar in enumerate(lugares, 1):
+        print(f"{i}. {lugar}")
+    print("---------------------------------")
+    
+    return lugares
+
+def obtener_seleccion(mensaje, max_opcion):
+    while True:
+        try:
+            opcion = int(input(mensaje))
+            if 1 <= opcion <= max_opcion:
+                return opcion - 1
+            else:
+                print(f"⚠ Por favor, ingresa un número entre 1 y {max_opcion}.")
+        except ValueError:
+            print("⚠ Entrada no válida. Ingresa solo el número.")
+
+# -------------------------------
+# MAIN
 # -------------------------------
 def main():
-    origen = input("Origen: ")
-    destino = input("Destino: ")
-
+    lugares = mostrar_menu()
+    
+    while True:
+        idx_origen = obtener_seleccion("\nElige el número de tu ORIGEN: ", len(lugares))
+        idx_destino = obtener_seleccion("Elige el número de tu DESTINO: ", len(lugares))
+        
+        if idx_origen == idx_destino:
+            print("⚠ El origen y el destino no pueden ser el mismo. Por favor elige de nuevo.")
+        else:
+            break
+            
+    origen = lugares[idx_origen]
+    destino = lugares[idx_destino]
+    
+    print(f"\n🚗 Calculando rutas desde '{origen}' hasta '{destino}'...")
 
     directions = gmaps.directions(origen, destino, mode="driving", alternatives=True)
+    
+    if not directions:
+        print("❌ Google Maps no pudo encontrar una ruta entre estos puntos.")
+        return
 
     nodos, conexiones = obtener_nodos(directions)
     G = construir_grafo(nodos, conexiones)
@@ -326,12 +372,10 @@ def main():
     inicio = 0
     fin = len(nodos) - 1
 
-    print("Calculando...")
-
+    print("Calculando caminos con los algoritmos...")
 
     ruta_bfs = bfs(G, inicio, fin, nodos)
     evitar = set(ruta_bfs) if ruta_bfs else set()
-
 
     ruta_dfs = dfs(G, inicio, fin, nodos, evitar)
     
@@ -339,15 +383,29 @@ def main():
     ruta_voraz = voraz(G, inicio, fin, nodos)
     ruta_tabu = tabu(G, inicio, fin, nodos)
     ruta_recocido = recocido(G, inicio, fin, nodos)
-
-    generar_mapa([
+    
+    print("\n--- DISTANCIAS RECORRIDAS ---")
+    nombres = ["BFS (Azul)", "DFS (Verde)", "A* (Rojo)", "Voraz (Naranja)", "Tabú (Morado)", "Recocido (Cian)"]
+    rutas_calculadas = [
         ruta_bfs,
         ruta_dfs,
         ruta_astar,
         ruta_voraz,
         ruta_tabu,
         ruta_recocido
-    ], nodos)
+    ]
+
+    for nombre, ruta in zip(nombres, rutas_calculadas):
+        if ruta:
+            dist_total = 0
+            for i in range(len(ruta) - 1):
+                dist_total += distancia(nodos[ruta[i]], nodos[ruta[i+1]]) * 111.1
+            print(f"{nombre}: {dist_total:.2f} km")
+        else:
+            print(f"{nombre}: ❌ No encontró ruta")
+    print("-----------------------------\n")
+
+    generar_mapa(rutas_calculadas, nodos)
 
 if __name__ == "__main__":
     main()
