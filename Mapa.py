@@ -19,7 +19,7 @@ def obtener_nodos(directions):
     nodos = []
     conexiones = []
 
-    # Ahora iteramos sobre TODAS las rutas que devuelva Google Maps, no solo la [0]
+    # Iteracion de las rutas
     for route in directions:
         prev_index = None
 
@@ -64,7 +64,7 @@ def bfs(G, inicio, fin, nodos):
         ruta = cola.popleft()
         nodo = ruta[-1]
 
-        # Llegamos si estamos geográficamente cerca del destino
+
         if distancia(nodos[nodo], nodos[fin]) < 0.0005: 
             return ruta
 
@@ -358,12 +358,12 @@ def main():
     origen = lugares[idx_origen]
     destino = lugares[idx_destino]
     
-    print(f"\n🚗 Calculando rutas desde '{origen}' hasta '{destino}'...")
+    print(f"\n Calculando rutas desde '{origen}' hasta '{destino}'...")
 
     directions = gmaps.directions(origen, destino, mode="driving", alternatives=True)
     
     if not directions:
-        print("❌ Google Maps no pudo encontrar una ruta entre estos puntos.")
+        print(" Google Maps no pudo encontrar una ruta entre estos puntos.")
         return
 
     nodos, conexiones = obtener_nodos(directions)
@@ -402,7 +402,7 @@ def main():
                 dist_total += distancia(nodos[ruta[i]], nodos[ruta[i+1]]) * 111.1
             print(f"{nombre}: {dist_total:.2f} km")
         else:
-            print(f"{nombre}: ❌ No encontró ruta")
+            print(f"{nombre}: No encontró ruta")
     print("-----------------------------\n")
 
     generar_mapa(rutas_calculadas, nodos)
