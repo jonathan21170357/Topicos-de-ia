@@ -1,8 +1,0 @@
-🎯 Meta encontrada en paso 1746
-
---- MÉTRICAS ---
-Algoritmo: A*
-Visitados: 613
-Longitud (nodos): 27
-Costo: 0.03545716340801942
-Tiempo: 0.0358 segundos
