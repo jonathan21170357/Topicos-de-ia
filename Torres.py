@@ -320,7 +320,8 @@ def ais(problema_params):
 
 # ==================== VISUALIZACIÓN ====================
 def visualizar_todas_soluciones(resultados, n_torres, ancho, alto, radio, puntos_demanda):
-    """Muestra las 5 gráficas de torres en una sola ventana (2x3, un espacio vacío)"""
+    """Muestra y guarda las 5 gráficas de torres en una sola ventana"""
+    
     nombres = ['PSO', 'GWO', 'AG', 'ABC', 'AIS']
     
     fig, axes = plt.subplots(2, 3, figsize=(15, 10))
@@ -328,8 +329,9 @@ def visualizar_todas_soluciones(resultados, n_torres, ancho, alto, radio, puntos
     
     for idx, nombre in enumerate(nombres):
         ax = axes[idx]
-        x = resultados[nombre][0]  # Posición de las torres
-        fit = resultados[nombre][1]  # Aptitud
+        
+        x = resultados[nombre][0]
+        fit = resultados[nombre][1]
         torres = x.reshape(n_torres, 2)
         
         ax.set_xlim(0, ancho)
@@ -337,41 +339,102 @@ def visualizar_todas_soluciones(resultados, n_torres, ancho, alto, radio, puntos
         ax.set_aspect('equal')
         
         # Puntos de demanda
-        ax.scatter(puntos_demanda[:, 0], puntos_demanda[:, 1], c='blue', s=20, alpha=0.5)
+        ax.scatter(
+            puntos_demanda[:, 0],
+            puntos_demanda[:, 1],
+            c='blue',
+            s=20,
+            alpha=0.5
+        )
         
         # Torres y cobertura
         for i, torre in enumerate(torres):
-            circulo = plt.Circle(torre, radio, color='red', fill=False, linewidth=1.5, alpha=0.7)
+            
+            circulo = plt.Circle(
+                torre,
+                radio,
+                color='red',
+                fill=False,
+                linewidth=1.5,
+                alpha=0.7
+            )
+            
             ax.add_patch(circulo)
-            ax.scatter(torre[0], torre[1], c='red', s=100, marker='s', edgecolors='darkred', linewidths=2, zorder=5)
-            ax.annotate(f'T{i+1}', torre, xytext=(3, 3), textcoords='offset points', fontsize=8)
+            
+            ax.scatter(
+                torre[0],
+                torre[1],
+                c='red',
+                s=100,
+                marker='s',
+                edgecolors='darkred',
+                linewidths=2,
+                zorder=5
+            )
+            
+            ax.annotate(
+                f'T{i+1}',
+                torre,
+                xytext=(3, 3),
+                textcoords='offset points',
+                fontsize=8
+            )
         
         ax.set_title(f'{nombre}\nAptitud = {fit:.2f}', fontsize=12)
         ax.set_xlabel('X')
         ax.set_ylabel('Y')
         ax.grid(True, alpha=0.3)
     
-    # Ocultar el subplot vacío (2,3 = 6 espacios, usamos 5)
+    # Ocultar espacio vacío
     axes[5].axis('off')
     
-    plt.suptitle('Optimización de Torres - Comparación de Algoritmos', fontsize=16)
+    plt.suptitle(
+        'Optimización de Torres - Comparación de Algoritmos',
+        fontsize=16
+    )
+    
     plt.tight_layout()
+    
+    # Guardar imagen
+    plt.savefig("soluciones.png", dpi=300)
+    
+    # Mostrar gráfica
     plt.show()
 
 def visualizar_convergencia(resultados):
-    """Muestra la gráfica de convergencia"""
+    """Muestra y guarda la gráfica de convergencia"""
+    
     plt.figure(figsize=(12, 6))
-    colores = {'PSO': 'blue', 'GWO': 'green', 'AG': 'red', 'ABC': 'orange', 'AIS': 'purple'}
+    
+    colores = {
+        'PSO': 'blue',
+        'GWO': 'green',
+        'AG': 'red',
+        'ABC': 'orange',
+        'AIS': 'purple'
+    }
     
     for nombre, (_, _, hist) in resultados.items():
-        plt.plot(hist, color=colores[nombre], label=nombre, linewidth=2)
+        plt.plot(
+            hist,
+            color=colores[nombre],
+            label=nombre,
+            linewidth=2
+        )
     
     plt.xlabel('Iteración', fontsize=12)
     plt.ylabel('Aptitud (Cobertura)', fontsize=12)
     plt.title('Comparación de Convergencia de Algoritmos', fontsize=14)
+    
     plt.legend(fontsize=11)
     plt.grid(True, alpha=0.3)
+    
     plt.tight_layout()
+    
+    # Guardar imagen
+    plt.savefig("convergencia.png", dpi=300)
+    
+    # Mostrar gráfica
     plt.show()
 
 # ==================== MAIN ====================
