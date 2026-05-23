@@ -3,7 +3,7 @@ import random
 from copy import deepcopy
 import matplotlib.pyplot as plt
 
-# Configurar matplotlib para evitar problemas de memoria
+
 plt.rcParams['figure.dpi'] = 100
 plt.rcParams['savefig.dpi'] = 100
 
@@ -13,7 +13,7 @@ class RedDeDatos:
     """Define el problema de optimización de red"""
     
     def __init__(self):
-        # Red de ejemplo: 5 nodos, 7 enlaces
+        # Red de ejemplo
         self.nodos = 5
         self.enlaces = [
             (0,1), (0,2), (1,2), (1,3), (2,3), (2,4), (3,4)
@@ -37,10 +37,10 @@ class RedDeDatos:
         
         # Demanda de tráfico entre nodos (fuente, destino, demanda)
         self.demandas = [
-            (0, 4, 50),   # nodo0 a nodo4: 50 Mbps
-            (0, 3, 30),   # nodo0 a nodo3: 30 Mbps
-            (1, 4, 40),   # nodo1 a nodo4: 40 Mbps
-            (2, 4, 35)    # nodo2 a nodo4: 35 Mbps
+            (0, 4, 50), 
+            (0, 3, 30),   
+            (1, 4, 40),   
+            (2, 4, 35)    
         ]
     
     def decodificar_solucion(self, x):
