@@ -4,24 +4,13 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
-# 1. Generación del Dataset Simulado (Parámetros CONAGUA)
-np.random.seed(42)
-n_samples = 200
+# 1. Cargar el Dataset Real (Asegúrate de poner el nombre correcto y extensión de tu archivo)
+df = pd.read_csv('Calidad_Agua_Subterranea.csv') 
+# Si es un archivo de Excel, usa: df = pd.read_excel('datos_conagua.xlsx')
 
-data = {
-    'ID_Muestra': [f'M-{i}' for i in range(1, n_samples + 1)],
-    'pH': np.random.normal(7.2, 0.5, n_samples),
-    'Turbidez_NTU': np.random.uniform(0.5, 10.0, n_samples),
-    'Oxigeno_Disuelto_mgL': np.random.normal(6.5, 1.2, n_samples),
-    'Conductividad_uS': np.random.normal(500, 150, n_samples),
-    'Dureza_mgL': np.random.normal(120, 30, n_samples),
-    'Nitratos_mgL': np.random.exponential(5, n_samples),
-    'Sulfatos_mgL': np.random.normal(40, 10, n_samples),
-    'Cloruros_mgL': np.random.uniform(10, 100, n_samples),
-    'Temperatura_Agua_C': np.random.normal(22, 3, n_samples),
-    'Categoria_Calidad': np.random.choice(['Buena', 'Regular', 'Mala'], n_samples, p=[0.6, 0.3, 0.1])
-}
-df = pd.DataFrame(data)
+# 2. Análisis Estadístico Inicial
+print("--- ESTADÍSTICAS DESCRIPTIVAS INICIALES ---")
+# ... (Tu código a partir de aquí permanece prácticamente igual) ...
 
 # Inyección de Outliers (Picos de contaminación o fallos de sensor)
 df.loc[10:15, 'pH'] = 14.0 
