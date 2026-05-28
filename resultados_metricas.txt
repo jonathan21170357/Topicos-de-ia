@@ -1,0 +1,23 @@
+============================================================
+RESULTADOS DE PREDICCIÓN DE PRECIOS DE AUTOMÓVILES
+============================================================
+
+MEJOR MODELO: Arquitectura E
+Capas ocultas: (200, 100)
+Alpha: 0.0001
+
+MÉTRICAS DE RENDIMIENTO:
+  R² Score: 0.8796
+  MAE: $2,049.33
+  RMSE: $3,082.45
+  MAPE: 16.71%
+
+ESTADÍSTICAS DE ERROR:
+  Mediana Error Absoluto: $1,438.21
+  Máximo Error Absoluto: $12,851.37
+  Mínimo Error Absoluto: $78.12
+
+PRECISIÓN DEL MODELO:
+  Predicciones con error < 10%: 17/41 (41.5%)
+  Predicciones con error < 20%: 28/41 (68.3%)
+  Predicciones con error < 30%: 35/41 (85.4%)
