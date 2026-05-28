@@ -5,7 +5,7 @@ import seaborn as sns
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
 # 1. Cargar el Dataset Real (Asegúrate de poner el nombre correcto y extensión de tu archivo)
-df = pd.read_csv('Calidad_Agua_Subterranea.csv') 
+df = pd.read_csv('Calidad_Agua_subterranea_2012_2024.xlsx') 
 # Si es un archivo de Excel, usa: df = pd.read_excel('datos_conagua.xlsx')
 
 # 2. Análisis Estadístico Inicial
