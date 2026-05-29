@@ -11,24 +11,18 @@ carpetas_nuevas = ["carros", "casas", "motos"]
 print("🧹 LIMPIANDO DATASET...")
 print("="*40)
 
-# Eliminar carpetas viejas de train
+# Eliminar carpetas viejas directamente de 'dataset/'
 for carpeta in carpetas_viejas:
-    ruta_train = f"dataset/train/{carpeta}"
-    if os.path.exists(ruta_train):
-        shutil.rmtree(ruta_train)
-        print(f"❌ Eliminado: {ruta_train}")
-
-# Eliminar carpetas viejas de test
-for carpeta in carpetas_viejas:
-    ruta_test = f"dataset/test/{carpeta}"
-    if os.path.exists(ruta_test):
-        shutil.rmtree(ruta_test)
-        print(f"❌ Eliminado: {ruta_test}")
+    ruta = f"dataset/{carpeta}"
+    if os.path.exists(ruta):
+        shutil.rmtree(ruta) # Borra la carpeta y todo su contenido
+        print(f"❌ Eliminado: {ruta}")
 
 print("\n✅ Dataset limpio. Ahora solo tienes:")
 for carpeta in carpetas_nuevas:
-    train_count = len(os.listdir(f"dataset/train/{carpeta}")) if os.path.exists(f"dataset/train/{carpeta}") else 0
-    test_count = len(os.listdir(f"dataset/test/{carpeta}")) if os.path.exists(f"dataset/test/{carpeta}") else 0
-    print(f"   📁 {carpeta}: {train_count} train, {test_count} test")
+    ruta_nueva = f"dataset/{carpeta}"
+    # Contamos cuántas fotos hay en total en cada carpeta
+    count = len(os.listdir(ruta_nueva)) if os.path.exists(ruta_nueva) else 0
+    print(f"   📁 {carpeta}: {count} imágenes en total")
 
-print("\n🎉 Ahora vuelve a ejecutar: python clasificador_completo.py")
+print("\n🎉 Ahora vuelve a ejecutar tu script de entrenamiento.")
