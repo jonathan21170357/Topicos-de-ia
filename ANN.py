@@ -34,13 +34,13 @@ sns.countplot(x=y)
 plt.title('Distribución de Clases de Género Musical')
 plt.xlabel('Clase (Género)')
 plt.ylabel('Cantidad')
-plt.savefig('1_distribucion_clases.png') # Guarda la imagen
+plt.savefig('1_distribucion_clases_Genero musical.png') # Guarda la imagen
 plt.close() # Cierra la figura para no mezclarla con la siguiente
 
 plt.figure(figsize=(12, 10))
 sns.heatmap(X.corr(), annot=True, cmap='coolwarm', fmt=".2f")
 plt.title('Matriz de Correlación de Características Musicales')
-plt.savefig('2_matriz_correlacion.png')
+plt.savefig('2_matriz_correlacion_Genero musical.png')
 plt.close()
 
 # 4. DIVISIÓN DE DATOS (80% ENTRENAMIENTO, 20% PRUEBAS)
@@ -85,7 +85,7 @@ plt.xlabel('Épocas')
 plt.ylabel('Pérdida')
 plt.legend()
 plt.tight_layout()
-plt.savefig('3_historial_entrenamiento.png')
+plt.savefig('3_historial_entrenamiento_Genero musical.png')
 plt.close()
 
 # 7. PRUEBA FINAL EN EL CONJUNTO INTOCABLE (20%)
@@ -127,7 +127,7 @@ sns.heatmap(confusion_matrix(y_test_orig, y_pred_orig), annot=True, fmt='d', cma
 plt.title('Matriz de Confusión - Desempeño en Pruebas Reales')
 plt.xlabel('Clase Predicha por la Red Neuronal')
 plt.ylabel('Clase Real de la Canción')
-plt.savefig('4_matriz_confusion.png')
+plt.savefig('4_matriz_confusion_Genero musical.png')
 plt.close()
 
 print("\nProceso terminado")

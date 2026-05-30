@@ -88,7 +88,7 @@ plt.title('Curva de Aprendizaje de la CNN')
 plt.xlabel('Épocas')
 plt.ylabel('Precisión')
 plt.legend()
-plt.savefig('1_curva_aprendizaje_cnn.png')
+plt.savefig('1_curva_aprendizaje_cnn_Imagenes.png')
 plt.close()
 
 # 5. MATRIZ DE CONFUSIÓN Y REPORTE
@@ -144,7 +144,7 @@ for imagenes, etiquetas in dataset_pruebas.take(1):
         plt.axis("off")
 
 plt.tight_layout()
-plt.savefig('3_ejemplos_reales_vs_predichos.png')
+plt.savefig('3_ejemplos_reales_vs_predichos_Imagenes.png')
 plt.close()
 
 print("\n🎉 ¡Proceso terminado exitosamente! Tus 3 imágenes están listas en Codespaces.")
